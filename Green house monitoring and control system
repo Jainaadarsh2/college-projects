@@ -1,0 +1,119 @@
+/
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <DHT.h>
+
+// Define the type of sensor and the pin it's connected to
+#define DHTPIN 2
+#define DHTTYPE DHT11
+
+// Define the pin for the fan
+const int fanPin = 3;
+
+// Define pins for LDR, LED, Relay, and Soil Sensor
+const int ldr_pin = 7;
+const int led_pin = 13;
+const int relayPin = 8;
+const int sensor_pin = A0;
+
+// Initialize DHT sensor
+DHT dht(DHTPIN, DHTTYPE);
+
+int output_value;
+
+// Set the LCD address and size (16 columns and 2 rows)
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+void setup() {
+  // Initialize pins
+  pinMode(fanPin, OUTPUT);
+  pinMode(ldr_pin, INPUT);
+  pinMode(led_pin, OUTPUT);
+  pinMode(relayPin, OUTPUT);
+  pinMode(sensor_pin, INPUT);
+  
+  // Initialize serial communication
+  Serial.begin(9600);
+  Serial.println("DHT11 Humidity and Temperature Sensor\n");
+
+  // Initialize DHT sensor
+  dht.begin();
+
+  // Initialize the LCD
+  lcd.init();
+  lcd.backlight();
+}
+
+void loop() {
+  // Read temperature and humidity from DHT sensor
+  float humidity = dht.readHumidity();
+  float temperature = dht.readTemperature();
+
+  // Check if any reads failed and exit early (to try again).
+  if (isnan(humidity) || isnan(temperature)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+
+  // Print temperature and humidity values to Serial Monitor
+  Serial.print("Humidity: ");
+  Serial.print(humidity);
+  Serial.print(" %\t");
+  Serial.print("Temperature: ");
+  Serial.print(temperature);
+  Serial.println(" *C");
+
+  // Turn on the fan if humidity is above a certain threshold
+  if (humidity > 60) { // Adjust this threshold according to your requirements
+    digitalWrite(fanPin, HIGH);
+    lcd.setCursor(0, 0);
+    lcd.print("Fan: ON ");
+  } else {
+    digitalWrite(fanPin, LOW);
+    lcd.setCursor(0, 0);
+    lcd.print("Fan: OFF");
+  }
+
+  // LDR and LED control
+  if (digitalRead(ldr_pin) == 1) {
+    digitalWrite(led_pin, HIGH);
+    lcd.setCursor(0, 1);
+    lcd.print("LED: ON ");
+  } else {
+    digitalWrite(led_pin, LOW);
+    lcd.setCursor(0, 1);
+    lcd.print("LED: OFF");
+  }
+  
+  // Read soil moisture sensor
+  output_value = analogRead(sensor_pin);
+  output_value = map(output_value, 550, 10, 0, 100);
+  
+  Serial.print("Moisture: ");
+  Serial.print(output_value);
+  Serial.println("%");
+  
+  // Control relay based on soil moisture
+  if (output_value < 20) {
+    digitalWrite(relayPin, LOW);
+    lcd.setCursor(9, 0);
+    lcd.print("Motor: OFF");
+  } else {
+    digitalWrite(relayPin, HIGH);
+    lcd.setCursor(9, 0);
+    lcd.print("Motor: ON ");
+  }
+
+  // Update LCD display with temperature, humidity, and moisture level
+  lcd.setCursor(0, 1);
+  lcd.print("Temp:");
+  lcd.print(temperature);
+  lcd.print("C ");
+  lcd.print("Hum:");
+  lcd.print(humidity);
+  lcd.print("% Moist:");
+  lcd.print(output_value);
+  lcd.print("%");
+
+  delay(1000);
+}
